@@ -1,9 +1,9 @@
 // const express = ('express')
-const bcrypt = ('bcrypt')
+//const express = require('express')
+const bcrypt = require('bcryptjs')
 const router = require('express').Router()
-const User = ('..users/users-model')
-const { restricted,
-        checkPasswordLength, 
+const User = require('../users/users-model')
+const { checkPasswordLength, 
         checkUsernameExists, 
         checkUsernameFree } = require('./auth-middleware')
 // Require `checkUsernameFree`, `checkUsernameExists` and `checkPasswordLength`
@@ -34,17 +34,30 @@ const { restricted,
  */
   router.post('/register', checkUsernameFree, checkPasswordLength, async (req, res, next) => {
     try {
+      // 1- pull u and p from req.body
+      // 2- create a hash off of the password
+      // 3- we will store u and hash to the db
       const { username, password } = req.body
       const newUser = {
         username,
         password: bcrypt.hashSync(password, 8), // 2^8 rounds
       }
       const created = await User.add(newUser)
-      res.status(201).json({ username: created.username, id: created.id })
+      res.status(201).json({ username: created.username, user_id: created.user_id })
     } catch (err) {
       next(err)
     }
   })
+  // router.post('/register', checkUsernameFree, checkPasswordLength, (req, res, next) => {
+  //   const { username, password } = req.body
+  //   const hash = bcrypt.hashSync(password, 8)
+
+  //   User.add({ username, password: hash })
+  //   .then(saved => {
+  //     res.status(201).json(saved)
+  //   })
+  //   .catch(next)
+  // })
 
 /**
   2 [POST] /api/auth/login { "username": "sue", "password": "1234" }
@@ -61,23 +74,13 @@ const { restricted,
     "message": "Invalid credentials"
   }
  */
-router.post('/login', checkUsernameExists, async (req, res, next) => {
-  try{
-      const { username, password } = req.body
-      const [userFromDb] = await User.findBy({ username })
-      if(!userFromDb) {
-        return next ({status: 401, message: "Invalid credentials"})
-      }
-        const verifies = bcrypt.compareSync(password, userFromDb.password)
-        if(!verifies){
-          return next ({status: 401, message: "Invalid credentials"})
-        }
-      
-      req.session.user = userFromDb
-      res.json({ message: `Welcome ${username}!`})
-
-  } catch (err) {
-    next(err)
+router.post('/login', checkUsernameExists,  (req, res, next) => {
+  const { password } = req.body
+  if(bcrypt.compareSync(password, req.user.password)){
+    req.session.user = req.user
+    res.json({message: `Welcome ${req.user.username}`})
+  }else {
+    next({ status: 401, message: 'Invalid credentials'})
   }
 })
 
@@ -97,7 +100,6 @@ router.post('/login', checkUsernameExists, async (req, res, next) => {
   }
  */
   router.get('/logout', async (req, res, next) => {
-    console.log('LOGOUT-session: ', req.session)
     try {
       if (req.session.user) {
         req.session.destroy( err => {

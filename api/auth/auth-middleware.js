@@ -24,12 +24,18 @@ function restricted(req, res, next) {
   }
 */
 async function checkUsernameFree(req, res, next) {
-  const user = await Users.findBy({ username: req.body.username})
-  if (user.length) {
-    next({ status: 422, message: 'Username taken'})
-} else {
-  next()
-}
+  try{
+    const users = await Users.findBy({ username: req.body.username})
+    if(!users.length) {
+      next()
+    } else {
+      next({ status: 422, 'message': 'Username taken'})
+    }
+
+   } catch (err){
+     next(err)
+   }
+  
 }
 
 /*
@@ -40,12 +46,17 @@ async function checkUsernameFree(req, res, next) {
     "message": "Invalid credentials"
   }
 */
-function checkUsernameExists(req, res, next) {
-  const { username } = req.body
-  if (!username) {
-    next({ status: 401, message: 'Invalid credentials'})
-  } else {
-    next()
+async function checkUsernameExists(req, res, next) {
+  try {
+    const users = await Users.findBy({ username: req.body.username})
+    if (!users.length){
+      req.user = users[0]
+      next()
+    } else {
+      next({status: 401, 'message': 'Invalid credentials'})
+    }
+  } catch (err){
+    next(err)
   }
 }
 
@@ -60,7 +71,9 @@ function checkUsernameExists(req, res, next) {
 function checkPasswordLength(req, res, next) {
   const { password } = req.body
   if (!password || password.length < 3) {
-    next({ status: 422, message: 'Password must be longer than 3 chars'})
+    next({ status: 422, 'message': 'Password must be longer than 3 chars'})
+  } else {
+    next()
   }
 }
 
