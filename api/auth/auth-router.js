@@ -96,17 +96,24 @@ router.post('/login', checkUsernameExists, async (req, res, next) => {
     "message": "no session"
   }
  */
-router.get('/logout', async (req, res, next) => {
-  try{
-    if (req.session.user){
-      next({status: 200, message: 'logged out'})
-    } else {
-      next({status: 200, message: 'no session'})
+  router.get('/logout', async (req, res, next) => {
+    console.log('LOGOUT-session: ', req.session)
+    try {
+      if (req.session.user) {
+        req.session.destroy( err => {
+          if ( err ) {
+            res.json('no session')
+          } else {
+            res.json('logged out')
+          }
+        })
+      } else {
+        res.json({ message: 'no session' })
+      }
+    } catch (error) {
+      next(error);
     }
-  }catch (err){
-    next(err)
-  }
-})
+  })
  
 // Don't forget to add the router to the `exports` object so it can be required in other modules
 module.exports = router
