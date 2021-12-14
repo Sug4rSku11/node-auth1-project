@@ -1,6 +1,6 @@
-const express = ('express')
+// const express = ('express')
 const bcrypt = ('bcrypt')
-const router = express.Router()
+const router = require('express').Router()
 const User = ('..users/users-model')
 const { restricted,
         checkPasswordLength, 
@@ -32,18 +32,19 @@ const { restricted,
     "message": "Password must be longer than 3 chars"
   }
  */
-router.post('/register', async (req, res, next) => {
-  try {
-    const { username, password} = req.body
-    const newUser = {
-      username,
-      password: bcrypt,hashSync(password, 8)
+  router.post('/register', checkUsernameFree, checkPasswordLength, async (req, res, next) => {
+    try {
+      const { username, password } = req.body
+      const newUser = {
+        username,
+        password: bcrypt.hashSync(password, 8), // 2^8 rounds
+      }
+      const created = await User.add(newUser)
+      res.status(201).json({ username: created.username, id: created.id })
+    } catch (err) {
+      next(err)
     }
-    const created = await User.add(newUser)
-  } catch (err){
-    next(err)
-  }
-})
+  })
 
 /**
   2 [POST] /api/auth/login { "username": "sue", "password": "1234" }
@@ -60,13 +61,18 @@ router.post('/register', async (req, res, next) => {
     "message": "Invalid credentials"
   }
  */
-router.post('/login', async (req, res, next) => {
+router.post('/login', checkUsernameExists, async (req, res, next) => {
   try{
       const { username, password } = req.body
       const [userFromDb] = await User.findBy({ username })
       if(!userFromDb) {
         return next ({status: 401, message: "Invalid credentials"})
       }
+        const verifies = bcrypt.compareSync(password, userFromDb.password)
+        if(!verifies){
+          return next ({status: 401, message: "Invalid credentials"})
+        }
+      
       req.session.user = userFromDb
       res.json({ message: `Welcome ${username}!`})
 
@@ -90,16 +96,17 @@ router.post('/login', async (req, res, next) => {
     "message": "no session"
   }
  */
-router.get('/logout', async (req, res, next)=> {
+router.get('/logout', async (req, res, next) => {
   try{
-    if(req.session.user) {
-      req.session.destroy((err) => {
-        if (err){
-          res.json('')
-        }
-      })
+    if (req.session.user){
+      next({status: 200, message: 'logged out'})
+    } else {
+      next({status: 200, message: 'no session'})
     }
+  }catch (err){
+    next(err)
   }
 })
  
 // Don't forget to add the router to the `exports` object so it can be required in other modules
+module.exports = router
