@@ -33,31 +33,17 @@ const { checkPasswordLength,
   }
  */
   router.post('/register', checkUsernameFree, checkPasswordLength, async (req, res, next) => {
-    try {
-      // 1- pull u and p from req.body
-      // 2- create a hash off of the password
-      // 3- we will store u and hash to the db
-      const { username, password } = req.body
-      const newUser = {
-        username,
-        password: bcrypt.hashSync(password, 8), // 2^8 rounds
-      }
-      const created = await User.add(newUser)
-      res.status(201).json({ username: created.username, user_id: created.user_id })
-    } catch (err) {
-      next(err)
-    }
-  })
-  // router.post('/register', checkUsernameFree, checkPasswordLength, (req, res, next) => {
-  //   const { username, password } = req.body
-  //   const hash = bcrypt.hashSync(password, 8)
+    
+    const { username, password } = req.body
+    const hash = bcrypt.hashSync(password, 8)
 
-  //   User.add({ username, password: hash })
-  //   .then(saved => {
-  //     res.status(201).json(saved)
-  //   })
-  //   .catch(next)
-  // })
+    User.add({ username, password: hash })
+    .then(saved => {
+      res.status(201).json(saved)
+    })
+    .catch(next)
+  })
+  
 
 /**
   2 [POST] /api/auth/login { "username": "sue", "password": "1234" }
@@ -76,12 +62,13 @@ const { checkPasswordLength,
  */
 router.post('/login', checkUsernameExists,  (req, res, next) => {
   const { password } = req.body
-  if(bcrypt.compareSync(password, req.user.password)){
+  if (bcrypt.compareSync(password, req.user.password)) {
     req.session.user = req.user
-    res.json({message: `Welcome ${req.user.username}`})
-  }else {
+    res.json({ message: `Welcome ${req.user.username}`})
+  } else {
     next({ status: 401, message: 'Invalid credentials'})
   }
+
 })
 
 /**
@@ -100,20 +87,16 @@ router.post('/login', checkUsernameExists,  (req, res, next) => {
   }
  */
   router.get('/logout', async (req, res, next) => {
-    try {
-      if (req.session.user) {
-        req.session.destroy( err => {
-          if ( err ) {
-            res.json('no session')
-          } else {
-            res.json('logged out')
-          }
-        })
-      } else {
-        res.json({ message: 'no session' })
-      }
-    } catch (error) {
-      next(error);
+    if (req.session.user) {
+      req.session.destroy(err => {
+        if (err){
+          next(err)
+        } else {
+          res.json({ message: 'logged out'})
+        }
+      })
+    } else {
+      res.json({message: 'no session'})
     }
   })
  
